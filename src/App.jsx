@@ -53,6 +53,14 @@ function LoadingOverlay({ message }) {
 
 // ─── Error State ─────────────────────────────────────────────────────────────
 function ErrorState({ error, onRetry }) {
+  const isTokenError = error && (
+    error.includes('MOSAIC_TOKEN') ||
+    error.includes('token') ||
+    error.includes('unauthorized') ||
+    error.includes('401') ||
+    error.includes('403')
+  )
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
       <div className="max-w-md w-full bg-charcoal/60 border border-red-500/30 rounded-lg p-8 text-center animate-fade-in">
@@ -61,12 +69,20 @@ function ErrorState({ error, onRetry }) {
         <p className="text-muted text-sm mb-2">
           Non è stato possibile caricare i dati da Mosaic.
         </p>
-        <div className="bg-navy/60 rounded p-3 mb-6 text-left">
+        <div className="bg-navy/60 rounded p-3 mb-4 text-left">
           <p className="text-red-400 text-xs font-mono break-all">{error}</p>
         </div>
+        {isTokenError && (
+          <a
+            href="/api/auth"
+            className="block w-full px-6 py-2.5 bg-gold text-navy font-semibold rounded hover:bg-gold-light transition-colors mb-3"
+          >
+            → Accedi con Strategy Studio
+          </a>
+        )}
         <button
           onClick={onRetry}
-          className="w-full px-6 py-2.5 bg-gold text-navy font-semibold rounded hover:bg-gold-light transition-colors"
+          className="w-full px-6 py-2.5 bg-charcoal border border-gold/30 text-gold rounded hover:bg-gold/10 transition-colors text-sm"
         >
           ↺ Riprova
         </button>
