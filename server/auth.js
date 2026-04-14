@@ -9,8 +9,6 @@
  * Token is cached in memory with 5-minute pre-expiry renewal.
  */
 
-import fetch from 'node-fetch'
-
 // ─── Config ──────────────────────────────────────────────────────────────────
 const BASE_URL = process.env.MOSAIC_BASE_URL || 'https://studio.strategy.com'
 const CLIENT_ID = process.env.MOSAIC_CLIENT_ID || ''
@@ -44,7 +42,7 @@ async function discoverTokenEndpoint() {
 
   for (const url of wellKnownUrls) {
     try {
-      const res = await fetch(url, { timeout: 5000 })
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
       if (res.ok) {
         const doc = await res.json()
         const endpoint = doc.token_endpoint
@@ -75,7 +73,7 @@ async function tryTokenEndpoint(endpoint) {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
-    timeout: 10000,
+    signal: AbortSignal.timeout(10000),
   })
 
   const text = await res.text()

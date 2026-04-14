@@ -5,7 +5,6 @@
  * into an array of plain objects.
  */
 
-import fetch from 'node-fetch'
 import { getAccessToken } from './auth.js'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
@@ -45,7 +44,7 @@ async function callAnthropic(sql, mosaicToken) {
       'anthropic-beta': 'mcp-client-2025-11-20',
     },
     body: JSON.stringify(body),
-    timeout: 60_000,
+    signal: AbortSignal.timeout(60_000),
   })
 
   const text = await res.text()

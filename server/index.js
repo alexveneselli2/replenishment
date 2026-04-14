@@ -10,7 +10,6 @@
  *   All non-API routes serve index.html (SPA fallback)
  */
 
-import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import path from 'path'
