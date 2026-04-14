@@ -4,12 +4,23 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 
 function getMosaicServer() {
   const token = import.meta.env.VITE_MOSAIC_TOKEN
+  const clientId = import.meta.env.VITE_MOSAIC_CLIENT_ID
+  const clientSecret = import.meta.env.VITE_MOSAIC_CLIENT_SECRET
+
   const server = {
     type: 'url',
     url: 'https://studio.strategy.com/collaboration/mcp/mosaic',
     name: 'mosaic',
   }
-  if (token) server.authorization_token = token
+
+  // Usa il token diretto se disponibile, altrimenti le credenziali client
+  if (token) {
+    server.authorization_token = token
+  } else if (clientId && clientSecret) {
+    // Basic auth con client_id:client_secret in base64
+    server.authorization_token = btoa(`${clientId}:${clientSecret}`)
+  }
+
   return server
 }
 
