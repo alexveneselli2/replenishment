@@ -19,10 +19,13 @@ async function callAnthropic(sql, mosaicToken) {
   const body = {
     model: MODEL,
     max_tokens: 4096,
-    messages: [
+    tools: [
       {
-        role: 'user',
-        content: `Execute this SQL query against the Gucci replenishment dataset and return the results as a markdown table. Do not add commentary — only the table.\n\nSQL:\n${sql}`,
+        type: 'mcp_toolset',
+        source: {
+          type: 'mcp_server',
+          server_name: 'mosaic',
+        },
       },
     ],
     mcp_servers: [
@@ -31,6 +34,12 @@ async function callAnthropic(sql, mosaicToken) {
         url: MOSAIC_MCP_URL,
         name: 'mosaic',
         authorization_token: mosaicToken,
+      },
+    ],
+    messages: [
+      {
+        role: 'user',
+        content: `Execute this SQL query against the Gucci replenishment dataset and return the results as a markdown table. Do not add commentary — only the table.\n\nSQL:\n${sql}`,
       },
     ],
   }
