@@ -38,8 +38,9 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # Accetta sia "VITE_ANTHROPIC_API_KEY" che "ANTHROPIC_API_KEY" come nome del secret
           VITE_ANTHROPIC_API_KEY: ${{ secrets.VITE_ANTHROPIC_API_KEY || secrets.ANTHROPIC_API_KEY }}
+          # Token di autenticazione per il server Mosaic MCP
+          VITE_MOSAIC_TOKEN: ${{ secrets.MOSAIC_TOKEN }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

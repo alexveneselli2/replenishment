@@ -2,10 +2,15 @@ import { extractTableText, parseMarkdownTable } from './parser'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 
-const MOSAIC_MCP_SERVER = {
-  type: 'url',
-  url: 'https://studio.strategy.com/collaboration/mcp/mosaic',
-  name: 'mosaic',
+function getMosaicServer() {
+  const token = import.meta.env.VITE_MOSAIC_TOKEN
+  const server = {
+    type: 'url',
+    url: 'https://studio.strategy.com/collaboration/mcp/mosaic',
+    name: 'mosaic',
+  }
+  if (token) server.authorization_token = token
+  return server
 }
 
 const SYSTEM_PROMPT =
@@ -77,7 +82,7 @@ export async function queryMosaic(sqlQuery, onProgress) {
     max_tokens: 4096,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: `Esegui questa query SQL: ${sqlQuery}` }],
-    mcp_servers: [MOSAIC_MCP_SERVER],
+    mcp_servers: [getMosaicServer()],
   }
 
   onProgress?.('Connessione a Mosaic...')
