@@ -38,8 +38,8 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # Imposta come secret nel repo: Settings > Secrets > ANTHROPIC_API_KEY
-          VITE_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Accetta sia "VITE_ANTHROPIC_API_KEY" che "ANTHROPIC_API_KEY" come nome del secret
+          VITE_ANTHROPIC_API_KEY: ${{ secrets.VITE_ANTHROPIC_API_KEY || secrets.ANTHROPIC_API_KEY }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
