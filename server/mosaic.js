@@ -22,10 +22,7 @@ async function callAnthropic(sql, mosaicToken) {
     tools: [
       {
         type: 'mcp_toolset',
-        source: {
-          type: 'mcp_server',
-          server_name: 'mosaic',
-        },
+        server_name: 'mosaic',
       },
     ],
     mcp_servers: [
