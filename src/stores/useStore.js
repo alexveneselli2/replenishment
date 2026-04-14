@@ -1,7 +1,6 @@
 import { create } from 'zustand'
-import { loadAllData } from '../api/mosaic'
+import { loadAllData } from '../api/client'
 import { deduplicateInventory, groupByStore } from '../utils/calculations'
-import { getStoredToken, clearToken } from '../utils/oauth'
 
 const DEFAULT_SIM_PARAMS = {
   coverage_days: 30,
@@ -63,23 +62,15 @@ export const useStore = create((set, get) => ({
   loadingMessage: '',
   error: null,
   dataLoaded: false,
-  authenticated: !!getStoredToken(),
 
   // ─── Navigation state ────────────────────────────────────────────────────
-  selectedStore: null,  // store name string
-  selectedProduct: null, // product name for chart focus
+  selectedStore: null,
+  selectedProduct: null,
 
   // ─── Simulation params ───────────────────────────────────────────────────
   simParams: { ...DEFAULT_SIM_PARAMS },
 
   // ─── Actions ─────────────────────────────────────────────────────────────
-  setAuthenticated: (val) => set({ authenticated: val }),
-
-  logout: () => {
-    clearToken()
-    set({ authenticated: false, dataLoaded: false, inventory: [], stores: [] })
-  },
-
   loadData: async () => {
     const { dataLoaded } = get()
     if (dataLoaded) return
@@ -94,11 +85,10 @@ export const useStore = create((set, get) => ({
       const inventory = deduplicateInventory(rawInventory)
       const stores = groupByStore(inventory)
 
-      // Calcola domande default dai dati di vendita
+      // Compute default daily demands from sales data (~90 days window)
       const product_demands = {}
       for (const sale of sales) {
         const key = `${sale.store}__${sale.product}`
-        // Assumi ~90 giorni di dati
         const demand = sale.total_qty_sold ? Number(sale.total_qty_sold) / 90 : 2
         product_demands[key] = Math.max(0.1, Math.round(demand * 10) / 10)
       }
@@ -166,7 +156,6 @@ export const useStore = create((set, get) => ({
       },
     })),
 
-  // Seleziona fornitore e aggiorna lead time
   selectSupplier: (supplier) =>
     set((state) => ({
       simParams: {
@@ -176,7 +165,7 @@ export const useStore = create((set, get) => ({
       },
     })),
 
-  // Helpers derivati
+  // Helpers
   getStoreByName: (name) => get().stores.find((s) => s.name === name),
 
   getProductDemand: (store, product) => {

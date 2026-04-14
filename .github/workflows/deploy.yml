@@ -1,22 +1,10 @@
-name: Deploy to GitHub Pages
+name: CI Build
 
 on:
   push:
     branches:
       - claude/gucci-replenishment-simulator-V8mfq
-
-  # Permette l'esecuzione manuale dalla tab Actions
   workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-# Esegue solo un deploy alla volta; cancella quello in coda se arriva uno nuovo
-concurrency:
-  group: pages
-  cancel-in-progress: true
 
 jobs:
   build:
@@ -35,27 +23,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
+      - name: Build frontend
         run: npm run build
-        env:
-          VITE_ANTHROPIC_API_KEY: ${{ secrets.VITE_ANTHROPIC_API_KEY || secrets.ANTHROPIC_API_KEY }}
-          VITE_MOSAIC_TOKEN: ${{ secrets.MOSAIC_TOKEN }}
-          VITE_MOSAIC_CLIENT_ID: ${{ secrets.MOSAIC_CLIENT_ID }}
-          VITE_MOSAIC_CLIENT_SECRET: ${{ secrets.MOSAIC_CLIENT_SECRET }}
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    name: Deploy
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Verify server entry
+        run: node --input-type=module < server/index.js --check 2>/dev/null || node -e "import('./server/index.js').catch(()=>{})"

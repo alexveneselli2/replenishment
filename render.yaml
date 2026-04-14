@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: gucci-replenishment
+    env: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: MOSAIC_CLIENT_ID
+        sync: false
+      - key: MOSAIC_CLIENT_SECRET
+        sync: false
+      - key: MOSAIC_TOKEN_ENDPOINT
+        value: https://studio.strategy.com/MicroStrategyLibrary/oauth2/token
+      - key: MOSAIC_BASE_URL
+        value: https://studio.strategy.com
