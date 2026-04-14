@@ -1,114 +1,139 @@
 /**
- * Mosaic MCP query layer.
- * Calls the Anthropic Messages API with the Mosaic MCP server attached,
- * extracts the markdown table from the assistant reply, and parses it
- * into an array of plain objects.
+ * Mosaic MCP client — chiama il server MCP direttamente via HTTP
+ * senza passare da Anthropic. Più veloce, nessun token LLM consumato.
+ *
+ * Schema: "shared studio"
+ * Tool:   "query" { schema, query }
  */
 
 import { getAccessToken } from './auth.js'
 
-const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 const MOSAIC_MCP_URL = 'https://studio.strategy.com/collaboration/mcp/mosaic'
-const MODEL = 'claude-opus-4-6'
+const MOSAIC_SCHEMA = 'shared studio'
 
-// ─── Anthropic request ────────────────────────────────────────────────────────
-async function callAnthropic(sql, mosaicToken) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) throw new Error('Missing ANTHROPIC_API_KEY env var')
-
-  const body = {
-    model: MODEL,
-    max_tokens: 4096,
-    tools: [
-      {
-        type: 'mcp_toolset',
-        server_name: 'mosaic',
-      },
-    ],
-    mcp_servers: [
-      {
-        type: 'url',
-        url: MOSAIC_MCP_URL,
-        name: 'mosaic',
-        authorization_token: mosaicToken,
-      },
-    ],
-    messages: [
-      {
-        role: 'user',
-        content: `Execute this SQL query against the Gucci replenishment dataset and return the results as a markdown table. Do not add commentary — only the table.\n\nSQL:\n${sql}`,
-      },
-    ],
+// ─── SSE parser ───────────────────────────────────────────────────────────────
+function parseSse(text) {
+  for (const chunk of text.split('\n\n')) {
+    const dataLine = chunk.split('\n').find((l) => l.startsWith('data: '))
+    if (dataLine) {
+      try { return JSON.parse(dataLine.slice(6)) } catch {}
+    }
   }
+  return null
+}
 
-  const res = await fetch(ANTHROPIC_API_URL, {
+// ─── Generic MCP POST ────────────────────────────────────────────────────────
+async function mcpPost(token, body, sessionId = null) {
+  const res = await fetch(MOSAIC_MCP_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-beta': 'mcp-client-2025-11-20',
+      'Accept': 'application/json, text/event-stream',
+      'Authorization': `Bearer ${token}`,
+      ...(sessionId ? { 'mcp-session-id': sessionId } : {}),
     },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(60_000),
   })
 
-  const text = await res.text()
-  let json
-  try { json = JSON.parse(text) } catch { json = {} }
-
-  if (!res.ok) {
-    throw new Error(`Anthropic API ${res.status}: ${text.slice(0, 400)}`)
+  if (!res.ok && res.status !== 202) {
+    const text = await res.text()
+    throw new Error(`MCP ${res.status}: ${text.slice(0, 300)}`)
   }
 
-  // Extract text from content blocks
-  const blocks = json.content || []
-  const textBlock = blocks.find((b) => b.type === 'text')
-  if (!textBlock) throw new Error('No text block in Anthropic response')
-  return textBlock.text
+  const newSessionId = res.headers.get('mcp-session-id')
+  const ct = res.headers.get('content-type') || ''
+
+  let json = null
+  if (res.status !== 202) {
+    const text = await res.text()
+    if (text) {
+      json = ct.includes('text/event-stream') ? parseSse(text) : JSON.parse(text)
+    }
+  }
+
+  return { json, sessionId: newSessionId }
 }
 
 // ─── Markdown table parser ────────────────────────────────────────────────────
 function parseMarkdownTable(text) {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
-
-  // Find the first header line (contains pipes)
   const headerIdx = lines.findIndex((l) => l.startsWith('|') && l.endsWith('|'))
-  if (headerIdx === -1) {
-    // No table found — return empty
-    console.warn('[mosaic] No markdown table found in response. Response snippet:', text.slice(0, 300))
-    return []
-  }
+  if (headerIdx === -1) return []
 
-  const parseRow = (line) =>
-    line
-      .split('|')
-      .slice(1, -1)  // remove leading/trailing empty segments
-      .map((c) => c.trim())
-
-  const headers = parseRow(lines[headerIdx]).map((h) => h.toLowerCase().replace(/\s+/g, '_'))
+  const parseRow = (line) => line.split('|').slice(1, -1).map((c) => c.trim())
+  const headers = parseRow(lines[headerIdx]).map((h) =>
+    h.toLowerCase().replace(/\s+/g, '_')
+  )
 
   const rows = []
-  for (let i = headerIdx + 2; i < lines.length; i++) {   // skip separator line
+  for (let i = headerIdx + 2; i < lines.length; i++) {
     const line = lines[i]
     if (!line.startsWith('|')) break
     const cells = parseRow(line)
     const obj = {}
     headers.forEach((h, idx) => {
       const raw = cells[idx] ?? ''
-      // Coerce numeric-looking values
       const num = Number(raw.replace(/,/g, ''))
       obj[h] = raw !== '' && !isNaN(num) && raw !== '-' ? num : raw
     })
     rows.push(obj)
   }
-
   return rows
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 export async function queryMosaic(sql) {
-  const mosaicToken = await getAccessToken()
-  const reply = await callAnthropic(sql, mosaicToken)
-  return parseMarkdownTable(reply)
+  const token = await getAccessToken()
+
+  // 1. Initialize session
+  const { json: initJson, sessionId } = await mcpPost(token, {
+    jsonrpc: '2.0',
+    id: 1,
+    method: 'initialize',
+    params: {
+      protocolVersion: '2024-11-05',
+      capabilities: {},
+      clientInfo: { name: 'gucci-replenishment', version: '1.0.0' },
+    },
+  })
+
+  const sid = sessionId || initJson?.result?.sessionId
+  if (!sid) throw new Error('MCP: nessun session ID ricevuto durante initialize')
+
+  // 2. Initialized notification (no response expected)
+  await mcpPost(token, { jsonrpc: '2.0', method: 'notifications/initialized' }, sid)
+
+  // 3. Call the query tool
+  const { json: callJson } = await mcpPost(
+    token,
+    {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: {
+        name: 'query',
+        arguments: { schema: MOSAIC_SCHEMA, query: sql },
+      },
+    },
+    sid
+  )
+
+  if (callJson?.error) {
+    throw new Error(callJson.error.message || JSON.stringify(callJson.error))
+  }
+
+  const toolResult = callJson?.result
+  if (toolResult?.isError) {
+    throw new Error(toolResult.content?.[0]?.text || 'Query Mosaic fallita')
+  }
+
+  const textBlock = (toolResult?.content || []).find((c) => c.type === 'text')
+  if (!textBlock?.text) throw new Error('Nessun contenuto testuale nella risposta Mosaic')
+
+  const rows = parseMarkdownTable(textBlock.text)
+  if (rows.length === 0) {
+    throw new Error(`Nessun dato. Risposta: ${textBlock.text.slice(0, 200)}`)
+  }
+  return rows
 }
