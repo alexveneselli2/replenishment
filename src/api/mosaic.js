@@ -13,12 +13,11 @@ function getMosaicServer() {
     name: 'mosaic',
   }
 
-  // Usa il token diretto se disponibile, altrimenti le credenziali client
+  // Usa il token diretto se disponibile, altrimenti il client_secret come Bearer
   if (token) {
     server.authorization_token = token
-  } else if (clientId && clientSecret) {
-    // Basic auth con client_id:client_secret in base64
-    server.authorization_token = btoa(`${clientId}:${clientSecret}`)
+  } else if (clientSecret) {
+    server.authorization_token = clientSecret
   }
 
   return server
