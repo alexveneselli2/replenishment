@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { loadAllData } from '../api/mosaic'
 import { deduplicateInventory, groupByStore } from '../utils/calculations'
+import { getStoredToken, clearToken } from '../utils/oauth'
 
 const DEFAULT_SIM_PARAMS = {
   coverage_days: 30,
@@ -62,6 +63,7 @@ export const useStore = create((set, get) => ({
   loadingMessage: '',
   error: null,
   dataLoaded: false,
+  authenticated: !!getStoredToken(),
 
   // ─── Navigation state ────────────────────────────────────────────────────
   selectedStore: null,  // store name string
@@ -71,6 +73,13 @@ export const useStore = create((set, get) => ({
   simParams: { ...DEFAULT_SIM_PARAMS },
 
   // ─── Actions ─────────────────────────────────────────────────────────────
+  setAuthenticated: (val) => set({ authenticated: val }),
+
+  logout: () => {
+    clearToken()
+    set({ authenticated: false, dataLoaded: false, inventory: [], stores: [] })
+  },
+
   loadData: async () => {
     const { dataLoaded } = get()
     if (dataLoaded) return

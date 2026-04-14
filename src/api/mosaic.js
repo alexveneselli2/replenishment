@@ -1,11 +1,11 @@
 import { extractTableText, parseMarkdownTable } from './parser'
+import { getStoredToken } from '../utils/oauth'
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 
 function getMosaicServer() {
-  const token = import.meta.env.VITE_MOSAIC_TOKEN
-  const clientId = import.meta.env.VITE_MOSAIC_CLIENT_ID
-  const clientSecret = import.meta.env.VITE_MOSAIC_CLIENT_SECRET
+  // Priorità: 1) OAuth access token dal browser, 2) token statico da env
+  const token = getStoredToken() || import.meta.env.VITE_MOSAIC_TOKEN
 
   const server = {
     type: 'url',
@@ -13,12 +13,7 @@ function getMosaicServer() {
     name: 'mosaic',
   }
 
-  // Usa il token diretto se disponibile, altrimenti il client_secret come Bearer
-  if (token) {
-    server.authorization_token = token
-  } else if (clientSecret) {
-    server.authorization_token = clientSecret
-  }
+  if (token) server.authorization_token = token
 
   return server
 }

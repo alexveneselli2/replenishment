@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
 import { useStore } from './stores/useStore'
 import Dashboard from './components/Dashboard'
 import StoreDetail from './components/StoreDetail'
 import Simulator from './components/Simulator'
+import { initiateLogin, handleCallback, isOAuthCallback } from './utils/oauth'
 
 // ─── Loading Overlay ─────────────────────────────────────────────────────────
 function LoadingOverlay({ message }) {
@@ -170,13 +171,87 @@ function NavBar() {
   )
 }
 
+// ─── Login Screen ────────────────────────────────────────────────────────────
+function LoginScreen({ onLogin, error }) {
+  const [logging, setLogging] = useState(false)
+
+  const handleLogin = async () => {
+    setLogging(true)
+    await initiateLogin()   // redirect — non ritorna
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6">
+      <div className="max-w-sm w-full text-center animate-fade-in">
+        <h1 className="font-serif text-gold text-5xl tracking-[0.3em] mb-2">GUCCI</h1>
+        <p className="text-muted text-xs tracking-[0.2em] uppercase mb-10">
+          Replenishment Intelligence
+        </p>
+
+        <div className="bg-charcoal/60 border border-gold/20 rounded-lg p-8">
+          <p className="text-off-white text-sm mb-6">
+            Accedi con il tuo account Strategy Studio per caricare i dati di inventario Mosaic.
+          </p>
+
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded p-3 mb-4 text-xs text-red-400 font-mono break-all">
+              {error}
+            </div>
+          )}
+
+          <button
+            onClick={handleLogin}
+            disabled={logging}
+            className="w-full px-6 py-3 bg-gold text-navy font-semibold rounded hover:bg-gold-light transition-colors disabled:opacity-60"
+          >
+            {logging ? 'Reindirizzamento…' : '→ Accedi con Strategy Studio'}
+          </button>
+        </div>
+
+        <p className="text-muted/50 text-xs mt-6">
+          Mosaic MCP · Strategy Studio
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // ─── App ─────────────────────────────────────────────────────────────────────
 export default function App() {
-  const { loadData, loading, loadingMessage, error, retryLoad } = useStore()
+  const { loadData, loading, loadingMessage, error, retryLoad, authenticated, setAuthenticated } = useStore()
+  const [authError, setAuthError] = useState(null)
+  const [handlingCallback, setHandlingCallback] = useState(isOAuthCallback())
 
+  // Gestisci callback OAuth (ritorno da Strategy Studio)
   useEffect(() => {
-    loadData()
+    if (!isOAuthCallback()) return
+
+    handleCallback()
+      .then((ok) => {
+        if (ok) {
+          setAuthenticated(true)
+        }
+      })
+      .catch((err) => {
+        setAuthError(err.message)
+      })
+      .finally(() => {
+        setHandlingCallback(false)
+      })
   }, [])
+
+  // Carica dati dopo autenticazione
+  useEffect(() => {
+    if (authenticated) loadData()
+  }, [authenticated])
+
+  if (handlingCallback) {
+    return <LoadingOverlay message="Completamento accesso…" />
+  }
+
+  if (!authenticated) {
+    return <LoginScreen onLogin={initiateLogin} error={authError} />
+  }
 
   if (loading) {
     return <LoadingOverlay message={loadingMessage} />
