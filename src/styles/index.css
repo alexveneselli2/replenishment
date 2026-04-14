@@ -1,0 +1,140 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Fonts ─────────────────────────────────────────────────────────────── */
+@layer base {
+  html {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-navy text-off-white;
+    background-image: linear-gradient(135deg, #0D0D0F 0%, #1A1A2E 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+}
+
+/* ─── Custom scrollbar ───────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0D0D0F;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #C9A96E40;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #C9A96E80;
+}
+
+/* ─── Range slider ───────────────────────────────────────────────────────── */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: #16213E;
+  border-radius: 2px;
+  outline: none;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #C9A96E;
+  cursor: pointer;
+  border: 2px solid #1A1A2E;
+  box-shadow: 0 0 8px rgba(201, 169, 110, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type='range']::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 14px rgba(201, 169, 110, 0.6);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #C9A96E;
+  cursor: pointer;
+  border: 2px solid #1A1A2E;
+}
+
+/* ─── Components ─────────────────────────────────────────────────────────── */
+@layer components {
+  .btn-gold {
+    @apply bg-gold text-navy font-semibold rounded transition-colors;
+    &:hover {
+      @apply bg-gold-light;
+    }
+  }
+
+  .btn-outline {
+    @apply border border-gold/30 text-gold rounded transition-colors;
+    &:hover {
+      @apply bg-gold/10 border-gold/60;
+    }
+  }
+
+  .card {
+    @apply bg-charcoal/60 backdrop-blur-sm border border-gold/20 rounded-lg;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-200 hover:border-gold/40 hover:shadow-gold;
+  }
+}
+
+/* ─── Loading overlay ────────────────────────────────────────────────────── */
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(201, 169, 110, 0.15);
+  border-top-color: #C9A96E;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ─── Recharts overrides ─────────────────────────────────────────────────── */
+.recharts-cartesian-axis-tick-value {
+  fill: #A09D97 !important;
+  font-size: 11px;
+}
+
+.recharts-legend-item-text {
+  color: #A09D97 !important;
+  font-size: 12px;
+}
+
+/* ─── Select arrow ───────────────────────────────────────────────────────── */
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23C9A96E' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px !important;
+  -webkit-appearance: none;
+  appearance: none;
+}
