@@ -6,9 +6,9 @@
  * Scopes: mcp:stream openid
  */
 
-const AUTH_ENDPOINT  = 'https://studio.strategy.com/collaboration/authorize'
-const TOKEN_ENDPOINT = 'https://studio.strategy.com/collaboration/token'
-const SCOPE          = 'mcp:stream openid'
+const AUTH_ENDPOINT  = 'https://studio.strategy.com/MicroStrategyLibrary/oauth2/authorize'
+const TOKEN_ENDPOINT = 'https://studio.strategy.com/MicroStrategyLibrary/oauth2/token'
+const SCOPE          = 'openid offline_access'
 
 const CLIENT_ID      = import.meta.env.VITE_MOSAIC_CLIENT_ID
 const CLIENT_SECRET  = import.meta.env.VITE_MOSAIC_CLIENT_SECRET
