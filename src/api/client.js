@@ -1,27 +1,15 @@
 /**
- * Frontend API client.
- * All Mosaic/Anthropic calls go through the Express backend at /api/query.
+ * Browser-side Anthropic API caller with Mosaic MCP.
+ * Credentials are baked in at build time via Vite env vars.
  */
 
-export async function queryAPI(sql) {
-  const res = await fetch('/api/query', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sql }),
-  })
+const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY
+const MOSAIC_TOKEN = import.meta.env.VITE_MOSAIC_TOKEN
+const MOSAIC_MCP_URL = 'https://studio.strategy.com/collaboration/mcp/mosaic'
+const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages'
 
-  const json = await res.json().catch(() => ({}))
-
-  if (!res.ok) {
-    throw new Error(json.error || `Server error: ${res.status}`)
-  }
-
-  return json.data ?? []
-}
-
-// ─── SQL query constants ──────────────────────────────────────────────────────
-
-export const SQL_INVENTORY = `
+// ─── SQL queries ──────────────────────────────────────────────────────────────
+const SQL_INVENTORY = `
 SELECT
   "store (store name)"           AS store,
   "city (city)"                  AS city,
@@ -40,7 +28,7 @@ GROUP BY 1,2,3,4,5,6
 ORDER BY gap ASC
 `.trim()
 
-export const SQL_SUPPLIERS = `
+const SQL_SUPPLIERS = `
 SELECT
   "supplier (supplier name)"     AS supplier,
   "contact name (contact name)"  AS contact,
@@ -50,7 +38,7 @@ GROUP BY 1,2
 ORDER BY lead_time ASC
 `.trim()
 
-export const SQL_SALES = `
+const SQL_SALES = `
 SELECT
   "store (store name)"           AS store,
   "product (product name)"       AS product,
@@ -61,17 +49,104 @@ GROUP BY 1,2
 ORDER BY total_qty_sold DESC
 `.trim()
 
+// ─── Markdown table parser ────────────────────────────────────────────────────
+function parseMarkdownTable(text) {
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
+  const headerIdx = lines.findIndex((l) => l.startsWith('|') && l.endsWith('|'))
+  if (headerIdx === -1) return []
+
+  const parseRow = (line) =>
+    line.split('|').slice(1, -1).map((c) => c.trim())
+
+  const headers = parseRow(lines[headerIdx]).map((h) =>
+    h.toLowerCase().replace(/\s+/g, '_')
+  )
+
+  const rows = []
+  for (let i = headerIdx + 2; i < lines.length; i++) {
+    const line = lines[i]
+    if (!line.startsWith('|')) break
+    const cells = parseRow(line)
+    const obj = {}
+    headers.forEach((h, idx) => {
+      const raw = cells[idx] ?? ''
+      const num = Number(raw.replace(/,/g, ''))
+      obj[h] = raw !== '' && !isNaN(num) && raw !== '-' ? num : raw
+    })
+    rows.push(obj)
+  }
+  return rows
+}
+
+// ─── Core query ───────────────────────────────────────────────────────────────
+async function queryMosaic(sql) {
+  if (!ANTHROPIC_API_KEY) {
+    throw new Error('VITE_ANTHROPIC_API_KEY non configurata.')
+  }
+
+  const body = {
+    model: 'claude-opus-4-6',
+    max_tokens: 4096,
+    messages: [
+      {
+        role: 'user',
+        content:
+          'Execute this SQL query against the Gucci replenishment dataset and return ONLY a markdown table — no commentary.\n\nSQL:\n' +
+          sql,
+      },
+    ],
+    mcp_servers: [
+      {
+        type: 'url',
+        url: MOSAIC_MCP_URL,
+        name: 'mosaic',
+        ...(MOSAIC_TOKEN ? { authorization_token: MOSAIC_TOKEN } : {}),
+      },
+    ],
+  }
+
+  const res = await fetch(ANTHROPIC_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-beta': 'mcp-client-2025-11-20',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify(body),
+  })
+
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const msg = json?.error?.message || JSON.stringify(json)
+    throw new Error(`Anthropic API (${res.status}): ${msg}`)
+  }
+
+  const textBlock = (json.content || []).find((b) => b.type === 'text')
+  if (!textBlock) throw new Error('Nessuna risposta testuale da Anthropic.')
+
+  const rows = parseMarkdownTable(textBlock.text)
+  if (rows.length === 0) {
+    throw new Error(
+      'Nessuna tabella nella risposta. Risposta: ' + textBlock.text.slice(0, 200)
+    )
+  }
+  return rows
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
 export async function loadAllData(onProgress) {
   onProgress?.('Connessione a Mosaic...')
-  const inventory = await queryAPI(SQL_INVENTORY)
+  const inventory = await queryMosaic(SQL_INVENTORY)
+
+  onProgress?.('Interrogazione inventario...')
+  const suppliers = await queryMosaic(SQL_SUPPLIERS)
 
   onProgress?.('Caricamento fornitori...')
-  const suppliers = await queryAPI(SQL_SUPPLIERS)
+  const sales = await queryMosaic(SQL_SALES)
 
   onProgress?.('Analisi vendite...')
-  const sales = await queryAPI(SQL_SALES)
-
-  onProgress?.('Analisi risposta...')
 
   return { inventory, suppliers, sales }
 }
