@@ -31,31 +31,32 @@ const SYSTEM_PROMPT =
 // Queries SQL
 export const QUERIES = {
   inventory: `
-SELECT DISTINCT
+SELECT
   "store (store name)" AS store,
   "city (city)" AS city,
   "city (latitude)" AS lat,
   "city (longitude)" AS lon,
   "product (product name)" AS product,
   "product category (product category)" AS category,
-  "stock level" AS stock,
-  "reorder point" AS reorder_pt,
-  "stock level" - "reorder point" AS gap,
-  "product price" AS price,
-  "store capacity" AS capacity,
-  "last count date (last count date)" AS last_count
+  SUM("stock level") AS stock,
+  SUM("reorder point") AS reorder_pt,
+  SUM("stock level") - SUM("reorder point") AS gap,
+  SUM("product price") AS price,
+  SUM("store capacity") AS capacity,
+  MAX("last count date (last count date)") AS last_count
 FROM "gucci fashion retail inventory and replenishment"
+GROUP BY 1,2,3,4,5,6
 ORDER BY gap ASC
   `.trim(),
 
   suppliers: `
-SELECT DISTINCT
+SELECT
   "supplier (supplier name)" AS supplier,
   "contact name (contact name)" AS contact,
-  "lead time days" AS lead_time
+  SUM("lead time days") AS lead_time
 FROM "gucci fashion retail inventory and replenishment"
-WHERE "lead time days" IS NOT NULL
-ORDER BY "lead time days" ASC
+GROUP BY 1,2
+ORDER BY lead_time ASC
   `.trim(),
 
   sales: `
@@ -63,9 +64,9 @@ SELECT
   "store (store name)" AS store,
   "product (product name)" AS product,
   SUM("quantity sold") AS total_qty_sold,
-  COUNT(*) AS num_transactions
+  COUNT("sale (sale id)") AS num_transactions
 FROM "gucci fashion retail inventory and replenishment"
-GROUP BY 1, 2
+GROUP BY 1,2
 ORDER BY total_qty_sold DESC
   `.trim(),
 }
